@@ -36,6 +36,10 @@ const initialState = {
 
   // Raw GeoJSON coords [lng, lat] for map sources
   _rawCoords: [],
+
+  // Turf.js LineString + total length for precise route-aligned interpolation
+  _turfLine: null,
+  _turfTotalKm: 0,
 };
 
 let state = { ...initialState };
@@ -60,7 +64,7 @@ export function setState(partial) {
 }
 
 export function resetState() {
-  state = { ...initialState, _cumDist: null };
+  state = { ...initialState, _cumDist: null, _turfLine: null, _turfTotalKm: 0 };
   emitChange();
 }
 

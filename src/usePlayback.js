@@ -51,29 +51,44 @@ export function usePlayback() {
   const lastBearing = useRef(0);
 
   /* ── Pulse light running along the route ── */
-  const updatePulse = useCallback((map, coords, cumDist, progress) => {
-    if (!map) return;
-    const src = map.getSource("route-pulse");
-    if (!src) return;
+  const updatePulse = useCallback(
+    (map, coords, cumDist, progress, turfLine, turfTotalKm) => {
+      if (!map) return;
+      const src = map.getSource("route-pulse");
+      if (!src) return;
 
-    // Create a short bright segment just ahead of the traveler
-    const pulseStart = Math.max(0, progress - 0.008);
-    const pulseEnd = Math.min(1, progress + 0.012);
+      // Create a short bright segment just ahead of the traveler
+      const pulseStart = Math.max(0, progress - 0.008);
+      const pulseEnd = Math.min(1, progress + 0.012);
 
-    const startPos = interpolateRoute(coords, cumDist, pulseStart);
-    const endPos = interpolateRoute(coords, cumDist, pulseEnd);
+      const startPos = interpolateRoute(
+        coords,
+        cumDist,
+        pulseStart,
+        turfLine,
+        turfTotalKm,
+      );
+      const endPos = interpolateRoute(
+        coords,
+        cumDist,
+        pulseEnd,
+        turfLine,
+        turfTotalKm,
+      );
 
-    src.setData({
-      type: "Feature",
-      geometry: {
-        type: "LineString",
-        coordinates: [
-          [startPos.lng, startPos.lat],
-          [endPos.lng, endPos.lat],
-        ],
-      },
-    });
-  }, []);
+      src.setData({
+        type: "Feature",
+        geometry: {
+          type: "LineString",
+          coordinates: [
+            [startPos.lng, startPos.lat],
+            [endPos.lng, endPos.lat],
+          ],
+        },
+      });
+    },
+    [],
+  );
 
   /* ── Animation frame loop ── */
   const loop = useCallback(
@@ -108,7 +123,13 @@ export function usePlayback() {
 
       // Update traveler, camera, and route sources
       if (s._cumDist && s.routeCoords.length > 0) {
-        const pos = interpolateRoute(s.routeCoords, s._cumDist, newProgress);
+        const pos = interpolateRoute(
+          s.routeCoords,
+          s._cumDist,
+          newProgress,
+          s._turfLine,
+          s._turfTotalKm,
+        );
         const markers = window.__mapMarkers;
         const map = window.__mapInstance;
 
@@ -142,7 +163,14 @@ export function usePlayback() {
           } catch (_) {}
 
           // Update pulse light
-          updatePulse(map, s.routeCoords, s._cumDist, newProgress);
+          updatePulse(
+            map,
+            s.routeCoords,
+            s._cumDist,
+            newProgress,
+            s._turfLine,
+            s._turfTotalKm,
+          );
         }
 
         // ── Cinematic camera follow (throttled ~150ms) ──
@@ -157,6 +185,8 @@ export function usePlayback() {
               s.routeCoords,
               s._cumDist,
               lookAheadT,
+              s._turfLine,
+              s._turfTotalKm,
             );
             let targetBearing = computeBearing(pos, aheadPos);
 

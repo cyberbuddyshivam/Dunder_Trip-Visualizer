@@ -7,6 +7,7 @@ import {
   fetchRoute,
   geoJSONToLatLngs,
   buildCumDist,
+  buildTurfLine,
 } from "../utils";
 
 /* ── Marker element factories ── */
@@ -152,6 +153,31 @@ function addRouteLayers(map) {
   map.addSource("route-traveled", { type: "geojson", data: EMPTY_GEO });
   map.addSource("route-pulse", { type: "geojson", data: EMPTY_GEO });
 
+  // ── Route Pulse (traveling light pulse) ──
+  map.addLayer({
+    id: "route-pulse-glow",
+    type: "line",
+    source: "route-pulse",
+    layout: { "line-join": "round", "line-cap": "round" },
+    paint: {
+      "line-color": "#ffffff",
+      "line-width": 14,
+      "line-opacity": 0.8,
+      "line-blur": 8,
+    },
+  });
+  map.addLayer({
+    id: "route-pulse-core",
+    type: "line",
+    source: "route-pulse",
+    layout: { "line-join": "round", "line-cap": "round" },
+    paint: {
+      "line-color": "#fff",
+      "line-width": 4,
+      "line-opacity": 1,
+    },
+  });
+
   // ── Route shadow (depth separation from map surface) ──
   map.addLayer({
     id: "route-shadow",
@@ -288,74 +314,140 @@ function clearRouteSources(map) {
 }
 
 /* ═══════════════════════════════════════════════
+   Programmatic marker placement (used by map click + search)
+   ═══════════════════════════════════════════════ */
+
+/** Place start marker at given coords. Callable from search. */
+export function placeStartMarker(lat, lng, label) {
+  const map = window.__mapInstance;
+  const markers = window.__mapMarkers;
+  if (!map || !markers) return;
+
+  // Remove existing start marker if any
+  if (markers.start) {
+    markers.start.remove();
+    markers.start = null;
+  }
+
+  const el = createMarkerElement("start");
+  markers.start = new maplibregl.Marker({ element: el, anchor: "center" })
+    .setLngLat([lng, lat])
+    .addTo(map);
+
+  // Floating label popup
+  const popup = new maplibregl.Popup({
+    closeButton: false,
+    closeOnClick: false,
+    offset: [0, -24],
+    className: "marker-label-popup",
+  })
+    .setLngLat([lng, lat])
+    .setHTML('<span class="label-text">Start Location</span>')
+    .addTo(map);
+  setTimeout(() => popup.remove(), 3000);
+
+  setState({ startLatLng: { lat, lng }, phase: "start-placed" });
+  if (label) {
+    setState({ startLabel: label });
+  } else {
+    reverseGeocode(lat, lng).then((l) => setState({ startLabel: l }));
+  }
+
+  map.flyTo({ center: [lng, lat], zoom: 12, duration: 1200, essential: true });
+}
+
+/** Place end marker and trigger route fetching. Callable from search. */
+export async function placeEndMarkerAndFetch(lat, lng, label) {
+  const map = window.__mapInstance;
+  const markers = window.__mapMarkers;
+  if (!map || !markers) return;
+
+  // Remove existing end marker if any
+  if (markers.end) {
+    markers.end.remove();
+    markers.end = null;
+  }
+
+  const el = createMarkerElement("end");
+  markers.end = new maplibregl.Marker({ element: el, anchor: "center" })
+    .setLngLat([lng, lat])
+    .addTo(map);
+
+  // Floating label popup
+  const popup = new maplibregl.Popup({
+    closeButton: false,
+    closeOnClick: false,
+    offset: [0, -24],
+    className: "marker-label-popup",
+  })
+    .setLngLat([lng, lat])
+    .setHTML('<span class="label-text">Destination</span>')
+    .addTo(map);
+  setTimeout(() => popup.remove(), 3000);
+
+  setState({ endLatLng: { lat, lng }, phase: "loading" });
+  if (label) {
+    setState({ endLabel: label });
+  } else {
+    reverseGeocode(lat, lng).then((l) => setState({ endLabel: l }));
+  }
+
+  try {
+    const s = getSnapshot();
+    const route = await fetchRoute(
+      s.startLatLng.lat,
+      s.startLatLng.lng,
+      lat,
+      lng,
+    );
+    processRoute(route, map);
+  } catch (err) {
+    alert(
+      "Could not find a driving route between those points. Try different locations.",
+    );
+    if (markers.start) {
+      markers.start.remove();
+      markers.start = null;
+    }
+    if (markers.end) {
+      markers.end.remove();
+      markers.end = null;
+    }
+    clearRouteSources(map);
+    setState({
+      startLatLng: null,
+      endLatLng: null,
+      startLabel: "",
+      endLabel: "",
+      routeCoords: [],
+      routeDistance: 0,
+      routeDuration: 0,
+      segments: [],
+      phase: "idle",
+      playing: false,
+      playbackProgress: 0,
+      _cumDist: null,
+      _rawCoords: [],
+    });
+  }
+}
+
+/* ═══════════════════════════════════════════════
    Map click handler (reads/writes store directly)
    ═══════════════════════════════════════════════ */
 async function handleMapClick(e) {
   const { lng, lat } = e.lngLat;
   const snap = getSnapshot();
-  const map = window.__mapInstance;
-  const markers = window.__mapMarkers;
 
   // ── Place Start ──
   if (snap.phase === "idle") {
-    const el = createMarkerElement("start");
-    markers.start = new maplibregl.Marker({ element: el, anchor: "center" })
-      .setLngLat([lng, lat])
-      .addTo(map);
-
-    setState({ startLatLng: { lat, lng }, phase: "start-placed" });
-    reverseGeocode(lat, lng).then((label) => setState({ startLabel: label }));
+    placeStartMarker(lat, lng);
     return;
   }
 
   // ── Place Destination & fetch route ──
   if (snap.phase === "start-placed") {
-    const el = createMarkerElement("end");
-    markers.end = new maplibregl.Marker({ element: el, anchor: "center" })
-      .setLngLat([lng, lat])
-      .addTo(map);
-
-    setState({ endLatLng: { lat, lng }, phase: "loading" });
-    reverseGeocode(lat, lng).then((label) => setState({ endLabel: label }));
-
-    try {
-      const s = getSnapshot();
-      const route = await fetchRoute(
-        s.startLatLng.lat,
-        s.startLatLng.lng,
-        lat,
-        lng,
-      );
-      processRoute(route, map);
-    } catch (err) {
-      alert(
-        "Could not find a driving route between those points. Try different locations.",
-      );
-      if (markers.start) {
-        markers.start.remove();
-        markers.start = null;
-      }
-      if (markers.end) {
-        markers.end.remove();
-        markers.end = null;
-      }
-      clearRouteSources(map);
-      setState({
-        startLatLng: null,
-        endLatLng: null,
-        startLabel: "",
-        endLabel: "",
-        routeCoords: [],
-        routeDistance: 0,
-        routeDuration: 0,
-        segments: [],
-        phase: "idle",
-        playing: false,
-        playbackProgress: 0,
-        _cumDist: null,
-        _rawCoords: [],
-      });
-    }
+    await placeEndMarkerAndFetch(lat, lng);
   }
 }
 
@@ -364,6 +456,7 @@ function processRoute(route, map) {
   const rawCoords = route.geometry.coordinates; // [lng, lat]
   const routeCoords = geoJSONToLatLngs(rawCoords);
   const cumDist = buildCumDist(routeCoords);
+  const { line: turfLine, totalKm: turfTotalKm } = buildTurfLine(rawCoords);
   const distKm = route.distance / 1000;
   const totalPlaybackTime = Math.min(60, Math.max(10, distKm * 0.15));
 
@@ -394,6 +487,8 @@ function processRoute(route, map) {
     totalPlaybackTime,
     _cumDist: cumDist,
     _rawCoords: rawCoords,
+    _turfLine: turfLine,
+    _turfTotalKm: turfTotalKm,
     segmentBoundaries,
     phase: "ready",
   });

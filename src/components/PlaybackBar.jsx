@@ -14,6 +14,8 @@ export default function PlaybackBar() {
     totalPlaybackTime,
     routeCoords,
     _cumDist,
+    _turfLine,
+    _turfTotalKm,
     segmentBoundaries,
     activeSegmentIndex,
   } = useRouteStore();
@@ -50,7 +52,13 @@ export default function PlaybackBar() {
 
     // Move traveler marker imperatively
     if (_cumDist && routeCoords.length > 0) {
-      const pos = interpolateRoute(routeCoords, _cumDist, t);
+      const pos = interpolateRoute(
+        routeCoords,
+        _cumDist,
+        t,
+        _turfLine,
+        _turfTotalKm,
+      );
       const marker = window.__mapMarkers?.traveler;
       if (marker) marker.setLngLat([pos.lng, pos.lat]);
 

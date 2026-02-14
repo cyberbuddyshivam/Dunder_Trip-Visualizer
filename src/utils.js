@@ -1,6 +1,9 @@
 /* ═══════════════════════════════════════════════
    API & Utility Functions
    ═══════════════════════════════════════════════ */
+import turfAlong from "@turf/along";
+import turfLength from "@turf/length";
+import { lineString as turfLineString } from "@turf/helpers";
 
 /** Reverse geocode using Nominatim (free) */
 export async function reverseGeocode(lat, lng) {
@@ -20,6 +23,35 @@ export async function reverseGeocode(lat, lng) {
     /* ignore */
   }
   return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+}
+
+/** Forward geocode – search by place name using Nominatim */
+export async function forwardGeocode(query) {
+  if (!query || query.trim().length < 2) return [];
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
+    );
+    const data = await res.json();
+    return data.map((item) => ({
+      lat: parseFloat(item.lat),
+      lng: parseFloat(item.lon),
+      label: item.display_name,
+      shortLabel: [
+        item.address?.city ||
+          item.address?.town ||
+          item.address?.village ||
+          item.name,
+        item.address?.state,
+        item.address?.country,
+      ]
+        .filter(Boolean)
+        .slice(0, 3)
+        .join(", "),
+    }));
+  } catch (_) {
+    return [];
+  }
 }
 
 /** Fetch driving route from OSRM (free, no key needed) */
@@ -62,12 +94,36 @@ export function buildCumDist(coords) {
   return cum;
 }
 
-/** Interpolate position along route at progress t ∈ [0,1] */
-export function interpolateRoute(coords, cumDist, t) {
+/**
+ * Build a Turf LineString + cache its total length (km).
+ * Call once per route; store the result in the state.
+ */
+export function buildTurfLine(rawCoords) {
+  // rawCoords = [[lng, lat], …]
+  const line = turfLineString(rawCoords);
+  const totalKm = turfLength(line, { units: "kilometers" });
+  return { line, totalKm };
+}
+
+/**
+ * Interpolate position along route at progress t ∈ [0,1].
+ * Uses Turf along() for perfect route-alignment when a turfLine is available.
+ * Falls back to cumDist-based interpolation otherwise.
+ */
+export function interpolateRoute(coords, cumDist, t, turfLine, turfTotalKm) {
   if (coords.length === 0) return { lat: 0, lng: 0 };
   if (t <= 0) return coords[0];
   if (t >= 1) return coords[coords.length - 1];
 
+  // ── Turf-based (preferred – snaps exactly to polyline) ──
+  if (turfLine && turfTotalKm > 0) {
+    const distKm = t * turfTotalKm;
+    const pt = turfAlong(turfLine, distKm, { units: "kilometers" });
+    const [lng, lat] = pt.geometry.coordinates;
+    return { lat, lng };
+  }
+
+  // ── Fallback: cumDist binary-search interpolation ──
   const totalDist = cumDist[cumDist.length - 1];
   const targetDist = t * totalDist;
 

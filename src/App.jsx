@@ -6,6 +6,7 @@ import InstructionOverlay from "./components/InstructionOverlay";
 import LoadingOverlay from "./components/LoadingOverlay";
 import PlaybackBar from "./components/PlaybackBar";
 import SegmentCard from "./components/SegmentCard";
+import LocationSearch from "./components/LocationSearch";
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
       <TopBar />
       <main id="content">
         <RoutePanel />
+        <LocationSearch />
         <MapView />
         <SegmentCard />
         <InstructionOverlay />
