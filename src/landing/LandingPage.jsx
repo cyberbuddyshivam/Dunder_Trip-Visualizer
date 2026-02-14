@@ -12,7 +12,7 @@ export default function LandingPage() {
     if (!container) return;
 
     const wrapper = document.createElement("div");
-    wrapper.setAttribute("data-us-project", "MWCbqmHtekexOxK4fX67");
+    wrapper.setAttribute("data-us-project", "iClMKXFy7pwNE41mxRrc");
     wrapper.style.width = "100%";
     wrapper.style.height = "100%";
     container.appendChild(wrapper);
@@ -61,30 +61,56 @@ export default function LandingPage() {
       {/* Content */}
       <div
         className="landing-content"
-        style={{ justifyContent: "flex-end", paddingBottom: "1.8rem" }}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
       >
-        <button
-          className="landing-cta"
-          onClick={() => navigate("/map")}
-          id="explore-map-btn"
-        >
-          Explore the Map
-          <span className="cta-arrow">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="5" y1="12" x2="19" y2="12" />
-              <polyline points="12 5 19 12 12 19" />
-            </svg>
-          </span>
-        </button>
+        {/* Empty spacer for top */}
+        <div></div>
+
+        {/* Middle content */}
+        <div style={{ textAlign: "center" }}>
+          <h1 className="landing-title" style={{ marginBottom: "1.5rem" }}>
+            <span className="title-gradient">
+              See Every Journey Before It Begins
+            </span>
+          </h1>
+
+          <p
+            className="landing-subtitle"
+            style={{ maxWidth: "700px", margin: "0 auto" }}
+          >
+            An interactive cinematic route visualizer that lets you explore
+            real-world paths, watch journeys unfold in motion, and understand
+            every segment of your trip with clarity.
+            <br />
+            <br />
+            Plan smarter by experiencing your route visually before you travel.
+          </p>
+        </div>
+
+        {/* Bottom button */}
+        <div style={{ paddingBottom: "3rem" }}>
+          <button
+            onClick={() => navigate("/map")}
+            id="explore-map-btn"
+            style={{
+              background: "none",
+              border: "none",
+              color: "white",
+              fontSize: "1.2rem",
+              cursor: "pointer",
+              padding: "0",
+              fontWeight: "500",
+              letterSpacing: "0.5px",
+            }}
+          >
+            Explore the Map →
+          </button>
+        </div>
       </div>
     </div>
   );
