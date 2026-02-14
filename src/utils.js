@@ -103,3 +103,53 @@ export function formatMMSS(sec) {
   const s = Math.floor(sec % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
+
+/** Compute bearing (degrees) from point A to point B */
+export function computeBearing(from, to) {
+  const toRad = Math.PI / 180;
+  const toDeg = 180 / Math.PI;
+  const dLng = (to.lng - from.lng) * toRad;
+  const lat1 = from.lat * toRad;
+  const lat2 = to.lat * toRad;
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  return (Math.atan2(y, x) * toDeg + 360) % 360;
+}
+
+/** Split route into traveled and upcoming GeoJSON coords at progress t */
+export function splitRouteAtProgress(coords, cumDist, t) {
+  if (!coords.length) return { traveled: [], upcoming: [] };
+  if (t <= 0)
+    return { traveled: [], upcoming: coords.map((c) => [c.lng, c.lat]) };
+  if (t >= 1)
+    return { traveled: coords.map((c) => [c.lng, c.lat]), upcoming: [] };
+
+  const totalDist = cumDist[cumDist.length - 1];
+  const targetDist = t * totalDist;
+
+  let lo = 0,
+    hi = cumDist.length - 1;
+  while (lo < hi - 1) {
+    const mid = (lo + hi) >> 1;
+    if (cumDist[mid] <= targetDist) lo = mid;
+    else hi = mid;
+  }
+
+  const segLen = cumDist[hi] - cumDist[lo];
+  const frac = segLen > 0 ? (targetDist - cumDist[lo]) / segLen : 0;
+  const interpLng = coords[lo].lng + frac * (coords[hi].lng - coords[lo].lng);
+  const interpLat = coords[lo].lat + frac * (coords[hi].lat - coords[lo].lat);
+  const interpPoint = [interpLng, interpLat];
+
+  const traveled = [];
+  for (let i = 0; i <= lo; i++) traveled.push([coords[i].lng, coords[i].lat]);
+  traveled.push(interpPoint);
+
+  const upcoming = [interpPoint];
+  for (let i = hi; i < coords.length; i++)
+    upcoming.push([coords[i].lng, coords[i].lat]);
+
+  return { traveled, upcoming };
+}

@@ -1,160 +1,234 @@
-import React, { useEffect, useRef, useCallback } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import React, { useEffect, useRef } from "react";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { useRouteStore, setState, getSnapshot } from "../store";
 import {
   reverseGeocode,
   fetchRoute,
   geoJSONToLatLngs,
   buildCumDist,
-  interpolateRoute,
 } from "../utils";
 
-/* Fix Leaflet default marker icon paths broken by bundlers */
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
-
-/* Leaflet icon helpers */
-function createIcon(type) {
-  return L.divIcon({
-    className: "custom-marker",
-    html: `<div class="marker-${type}"></div>`,
-    iconSize: [20, 20],
-    iconAnchor: [10, 10],
-  });
+/* ── Marker element factories ── */
+function createMarkerElement(type) {
+  const el = document.createElement("div");
+  el.className = `marker-3d marker-${type}`;
+  const inner = document.createElement("div");
+  inner.className = `marker-inner marker-inner-${type}`;
+  el.appendChild(inner);
+  const ring = document.createElement("div");
+  ring.className = `marker-ring marker-ring-${type}`;
+  el.appendChild(ring);
+  return el;
 }
 
-function createTravelerIcon() {
-  return L.divIcon({
-    className: "custom-marker",
-    html: '<div class="pulse-traveler"></div>',
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
-  });
-}
+const EMPTY_GEO = {
+  type: "Feature",
+  geometry: { type: "LineString", coordinates: [] },
+};
 
 export default function MapView() {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const markersRef = useRef({ start: null, end: null, traveler: null });
+  const store = useRouteStore();
+  const layersReady = useRef(false);
 
-  // Leaflet layer refs (not React state — imperative)
-  const layersRef = useRef({
-    startMarker: null,
-    endMarker: null,
-    routeGlow: null,
-    routeLine: null,
-    travelerMarker: null,
-  });
-
-  // Expose map + layers globally so playback hook can use them
+  /* Expose map + markers globally for playback hook */
   useEffect(() => {
     window.__mapInstance = mapInstanceRef.current;
-    window.__mapLayers = layersRef.current;
+    window.__mapMarkers = markersRef.current;
   });
 
-  // Read store for reset-driven cleanup
-  const store = useRouteStore();
-
-  /* ─── Initialize Leaflet map ─── */
+  /* ─── Initialize MapLibre GL map ─── */
   useEffect(() => {
-    if (mapInstanceRef.current) return; // already initialized
+    if (mapInstanceRef.current) return;
 
-    const map = L.map(mapRef.current, {
-      center: [20, 0],
-      zoom: 3,
-      zoomControl: true,
-      attributionControl: true,
+    const map = new maplibregl.Map({
+      container: mapRef.current,
+      style: {
+        version: 8,
+        sources: {
+          "carto-light": {
+            type: "raster",
+            tiles: [
+              "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png",
+              "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png",
+              "https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png",
+            ],
+            tileSize: 256,
+            attribution:
+              '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+          },
+        },
+        layers: [
+          {
+            id: "carto-tiles",
+            type: "raster",
+            source: "carto-light",
+            minzoom: 0,
+            maxzoom: 20,
+          },
+        ],
+        glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+      },
+      center: [78.9629, 20.5937],
+      zoom: 4.5,
+      pitch: 0,
+      bearing: 0,
+      maxPitch: 70,
+      antialias: true,
     });
 
-    L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-      {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-        subdomains: "abcd",
-        maxZoom: 20,
-      },
-    ).addTo(map);
+    map.addControl(
+      new maplibregl.NavigationControl({ showCompass: true }),
+      "top-right",
+    );
+
+    map.on("load", () => {
+      addRouteLayers(map);
+      layersReady.current = true;
+    });
+
+    map.on("click", handleMapClick);
 
     mapInstanceRef.current = map;
     window.__mapInstance = map;
 
-    // Force Leaflet to recalculate container size after React render
-    setTimeout(() => map.invalidateSize(), 0);
-    // Also on window resize
-    const onResize = () => map.invalidateSize();
-    window.addEventListener("resize", onResize);
-
-    // Click handler
-    map.on("click", handleMapClick);
-
     return () => {
-      window.removeEventListener("resize", onResize);
-      map.off("click", handleMapClick);
       map.remove();
       mapInstanceRef.current = null;
+      layersReady.current = false;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ─── Clean up layers when store resets to idle ─── */
+  /* ─── Clean up when store resets to idle ─── */
   useEffect(() => {
     if (store.phase === "idle") {
       const map = mapInstanceRef.current;
-      const layers = layersRef.current;
+      const markers = markersRef.current;
       if (!map) return;
-      Object.keys(layers).forEach((k) => {
-        if (layers[k]) {
-          map.removeLayer(layers[k]);
-          layers[k] = null;
-        }
+
+      if (markers.start) {
+        markers.start.remove();
+        markers.start = null;
+      }
+      if (markers.end) {
+        markers.end.remove();
+        markers.end = null;
+      }
+      if (markers.traveler) {
+        markers.traveler.remove();
+        markers.traveler = null;
+      }
+
+      clearRouteSources(map);
+
+      map.flyTo({
+        center: [78.9629, 20.5937],
+        zoom: 4.5,
+        pitch: 0,
+        bearing: 0,
+        duration: 1500,
+        essential: true,
       });
-      map.flyTo([20, 0], 3, { duration: 1 });
     }
   }, [store.phase]);
 
   return <div id="map" ref={mapRef} />;
 }
 
-/* ───────────────────────────────────────────────
+/* ═══════════════════════════════════════════════
+   Map layer management
+   ═══════════════════════════════════════════════ */
+function addRouteLayers(map) {
+  map.addSource("route-upcoming", { type: "geojson", data: EMPTY_GEO });
+  map.addSource("route-traveled", { type: "geojson", data: EMPTY_GEO });
+
+  // Upcoming glow
+  map.addLayer({
+    id: "route-upcoming-glow",
+    type: "line",
+    source: "route-upcoming",
+    layout: { "line-join": "round", "line-cap": "round" },
+    paint: {
+      "line-color": "#93C5FD",
+      "line-width": 14,
+      "line-opacity": 0.18,
+      "line-blur": 8,
+    },
+  });
+  // Upcoming line
+  map.addLayer({
+    id: "route-upcoming-line",
+    type: "line",
+    source: "route-upcoming",
+    layout: { "line-join": "round", "line-cap": "round" },
+    paint: { "line-color": "#93C5FD", "line-width": 4.5, "line-opacity": 0.5 },
+  });
+  // Traveled glow
+  map.addLayer({
+    id: "route-traveled-glow",
+    type: "line",
+    source: "route-traveled",
+    layout: { "line-join": "round", "line-cap": "round" },
+    paint: {
+      "line-color": "#3B82F6",
+      "line-width": 16,
+      "line-opacity": 0.22,
+      "line-blur": 10,
+    },
+  });
+  // Traveled line
+  map.addLayer({
+    id: "route-traveled-line",
+    type: "line",
+    source: "route-traveled",
+    layout: { "line-join": "round", "line-cap": "round" },
+    paint: { "line-color": "#3B82F6", "line-width": 5.5, "line-opacity": 0.9 },
+  });
+}
+
+function clearRouteSources(map) {
+  try {
+    const s1 = map.getSource("route-upcoming");
+    const s2 = map.getSource("route-traveled");
+    if (s1) s1.setData(EMPTY_GEO);
+    if (s2) s2.setData(EMPTY_GEO);
+  } catch (_) {
+    /* safe ignore */
+  }
+}
+
+/* ═══════════════════════════════════════════════
    Map click handler (reads/writes store directly)
-   ─────────────────────────────────────────────── */
+   ═══════════════════════════════════════════════ */
 async function handleMapClick(e) {
-  const { lat, lng } = e.latlng;
+  const { lng, lat } = e.lngLat;
   const snap = getSnapshot();
   const map = window.__mapInstance;
-  const layers = window.__mapLayers;
+  const markers = window.__mapMarkers;
 
   // ── Place Start ──
   if (snap.phase === "idle") {
-    const marker = L.marker([lat, lng], { icon: createIcon("start") }).addTo(
-      map,
-    );
-    layers.startMarker = marker;
+    const el = createMarkerElement("start");
+    markers.start = new maplibregl.Marker({ element: el, anchor: "center" })
+      .setLngLat([lng, lat])
+      .addTo(map);
 
-    setState({
-      startLatLng: { lat, lng },
-      phase: "start-placed",
-    });
-
+    setState({ startLatLng: { lat, lng }, phase: "start-placed" });
     reverseGeocode(lat, lng).then((label) => setState({ startLabel: label }));
     return;
   }
 
   // ── Place Destination & fetch route ──
   if (snap.phase === "start-placed") {
-    const marker = L.marker([lat, lng], { icon: createIcon("end") }).addTo(map);
-    layers.endMarker = marker;
+    const el = createMarkerElement("end");
+    markers.end = new maplibregl.Marker({ element: el, anchor: "center" })
+      .setLngLat([lng, lat])
+      .addTo(map);
 
-    setState({
-      endLatLng: { lat, lng },
-      phase: "loading",
-    });
-
+    setState({ endLatLng: { lat, lng }, phase: "loading" });
     reverseGeocode(lat, lng).then((label) => setState({ endLabel: label }));
 
     try {
@@ -165,18 +239,20 @@ async function handleMapClick(e) {
         lat,
         lng,
       );
-      processRoute(route, map, layers);
+      processRoute(route, map);
     } catch (err) {
       alert(
         "Could not find a driving route between those points. Try different locations.",
       );
-      // full reset
-      Object.keys(layers).forEach((k) => {
-        if (layers[k]) {
-          map.removeLayer(layers[k]);
-          layers[k] = null;
-        }
-      });
+      if (markers.start) {
+        markers.start.remove();
+        markers.start = null;
+      }
+      if (markers.end) {
+        markers.end.remove();
+        markers.end = null;
+      }
+      clearRouteSources(map);
       setState({
         startLatLng: null,
         endLatLng: null,
@@ -190,27 +266,35 @@ async function handleMapClick(e) {
         playing: false,
         playbackProgress: 0,
         _cumDist: null,
+        _rawCoords: [],
       });
     }
   }
 }
 
 /* ── Process OSRM response ── */
-function processRoute(route, map, layers) {
-  const routeCoords = geoJSONToLatLngs(route.geometry.coordinates);
+function processRoute(route, map) {
+  const rawCoords = route.geometry.coordinates; // [lng, lat]
+  const routeCoords = geoJSONToLatLngs(rawCoords);
   const cumDist = buildCumDist(routeCoords);
   const distKm = route.distance / 1000;
   const totalPlaybackTime = Math.min(60, Math.max(10, distKm * 0.15));
 
   const segments = [];
+  let segDistAccum = 0;
+  const segmentBoundaries = [0];
+
   (route.legs || []).forEach((leg) => {
     (leg.steps || []).forEach((step) => {
       if (step.name || step.maneuver) {
         segments.push({
           instruction: step.name || "Unnamed road",
           distance: step.distance,
+          duration: step.duration,
           type: step.maneuver?.type || "",
         });
+        segDistAccum += step.distance;
+        segmentBoundaries.push(Math.min(segDistAccum / route.distance, 1));
       }
     });
   });
@@ -222,54 +306,49 @@ function processRoute(route, map, layers) {
     segments,
     totalPlaybackTime,
     _cumDist: cumDist,
+    _rawCoords: rawCoords,
+    segmentBoundaries,
     phase: "ready",
   });
 
-  drawRoute(routeCoords, map, layers);
+  animateRouteDrawing(rawCoords, map);
 }
 
-/* ── Draw route polyline with animated reveal ── */
-function drawRoute(routeCoords, map, layers) {
-  const coords = routeCoords.map((c) => [c.lat, c.lng]);
-
-  // Glow layer
-  layers.routeGlow = L.polyline(coords, {
-    color: "#3B82F6",
-    weight: 10,
-    opacity: 0.15,
-    lineCap: "round",
-    lineJoin: "round",
-  }).addTo(map);
-
-  // Main line (animated)
-  layers.routeLine = L.polyline([], {
-    color: "#3B82F6",
-    weight: 4,
-    opacity: 0.85,
-    lineCap: "round",
-    lineJoin: "round",
-  }).addTo(map);
-
-  // Animate drawing
-  const total = coords.length;
-  const drawDuration = 1200;
+/* ── Animated route drawing + camera fly-to-fit ── */
+function animateRouteDrawing(rawCoords, map) {
+  const total = rawCoords.length;
+  const drawDuration = 1500;
   let start = null;
-  const drawn = [];
 
   function step(ts) {
     if (!start) start = ts;
-    const elapsed = ts - start;
-    const progress = Math.min(elapsed / drawDuration, 1);
-    const idx = Math.floor(progress * (total - 1));
-    while (drawn.length <= idx && drawn.length < total) {
-      drawn.push(coords[drawn.length]);
-    }
-    layers.routeLine.setLatLngs(drawn);
+    const progress = Math.min((ts - start) / drawDuration, 1);
+    const idx = Math.floor(progress * (total - 1)) + 1;
+    const partialCoords = rawCoords.slice(0, idx);
+
+    try {
+      const src = map.getSource("route-upcoming");
+      if (src) {
+        src.setData({
+          type: "Feature",
+          geometry: { type: "LineString", coordinates: partialCoords },
+        });
+      }
+    } catch (_) {}
+
     if (progress < 1) requestAnimationFrame(step);
   }
   requestAnimationFrame(step);
 
-  // Fly to bounds
-  const bounds = L.latLngBounds(coords);
-  map.flyToBounds(bounds, { padding: [80, 80], duration: 1.4 });
+  // Fly to fit route bounds
+  const bounds = rawCoords.reduce(
+    (b, c) => b.extend(c),
+    new maplibregl.LngLatBounds(rawCoords[0], rawCoords[0]),
+  );
+  const camera = map.cameraForBounds(bounds, {
+    padding: { top: 100, bottom: 120, left: 350, right: 60 },
+  });
+  if (camera) {
+    map.flyTo({ ...camera, duration: 1800, essential: true });
+  }
 }

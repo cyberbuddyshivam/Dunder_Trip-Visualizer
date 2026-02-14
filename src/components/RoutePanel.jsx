@@ -12,6 +12,7 @@ export default function RoutePanel() {
     routeDistance,
     routeDuration,
     segments,
+    activeSegmentIndex,
   } = useRouteStore();
 
   const visible = phase === "ready";
@@ -68,7 +69,10 @@ export default function RoutePanel() {
       <h4 className="panel-subtitle">Route Segments</h4>
       <ul className="segments-list">
         {segments.slice(0, 20).map((seg, i) => (
-          <li key={i}>
+          <li
+            key={i}
+            className={activeSegmentIndex === i ? "active-segment" : ""}
+          >
             <span className="seg-icon" />
             {seg.instruction}
             <span

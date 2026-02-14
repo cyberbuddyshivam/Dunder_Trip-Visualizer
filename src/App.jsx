@@ -5,6 +5,7 @@ import MapView from "./components/MapView";
 import InstructionOverlay from "./components/InstructionOverlay";
 import LoadingOverlay from "./components/LoadingOverlay";
 import PlaybackBar from "./components/PlaybackBar";
+import SegmentCard from "./components/SegmentCard";
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
       <main id="content">
         <RoutePanel />
         <MapView />
+        <SegmentCard />
         <InstructionOverlay />
         <LoadingOverlay />
       </main>

@@ -27,6 +27,15 @@ const initialState = {
 
   // Cached cumulative distances (computed once per route)
   _cumDist: null,
+
+  // Cinematic state
+  activeSegmentIndex: -1,
+  segmentBoundaries: [],
+  showSegmentCard: false,
+  currentSegmentInfo: null,
+
+  // Raw GeoJSON coords [lng, lat] for map sources
+  _rawCoords: [],
 };
 
 let state = { ...initialState };

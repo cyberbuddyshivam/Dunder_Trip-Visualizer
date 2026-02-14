@@ -26,7 +26,7 @@ export default function TopBar() {
             </defs>
           </svg>
         </div>
-        <span className="app-title">Journey Route Visualizer</span>
+        <span className="app-title">Cinematic Journey Visualizer</span>
       </div>
       <div className="topbar-right">
         <button
