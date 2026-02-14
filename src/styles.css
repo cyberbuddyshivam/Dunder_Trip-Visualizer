@@ -1,6 +1,8 @@
 /* ═══════════════════════════════════════════════
-   Cinematic Journey Visualizer – Light-Mode Styles
+   Cinematic Journey Visualizer – Clean Modern Neutral
    ═══════════════════════════════════════════════ */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
 /* ── Reset & Base ─────────────────────────────── */
 *,
@@ -9,29 +11,53 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  cursor:
+    url(/arrow.png) 0 0,
+    auto;
 }
 
 :root {
-  --bg: #f6f7fb;
+  /* Background & Surfaces */
+  --bg: #f4f5f7;
   --surface: #ffffff;
-  --text: #1e293b;
-  --text-muted: #64748b;
-  --accent: #3b82f6;
-  --accent-light: #60a5fa;
-  --accent-lighter: #93c5fd;
-  --accent-bg: #eff6ff;
-  --accent-glow: rgba(59, 130, 246, 0.35);
-  --accent-glow-strong: rgba(59, 130, 246, 0.55);
-  --border: #e2e8f0;
+  --surface-secondary: #eef0f3;
+  --border: #d6d9df;
+
+  /* UI Text */
+  --text: #1f2937;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+
+  /* Route & Interaction Accent (Warm) */
+  --accent: #d4a373;
+  --accent-hover: #c08a5b;
+  --accent-light: #e7c2a3;
+  --accent-dark: #b8895c;
+  --accent-bg: #faf5f0;
+  --accent-glow: rgba(212, 163, 115, 0.35);
+  --accent-glow-strong: rgba(212, 163, 115, 0.55);
+
+  /* Primary CTA (Dark) */
+  --cta-primary: #1f2937;
+  --cta-primary-hover: #111827;
+  --cta-primary-text: #ffffff;
+
+  /* Shadows */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
   --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(0, 0, 0, 0.05);
   --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.12), 0 8px 20px rgba(0, 0, 0, 0.06);
+
+  /* Border Radius */
   --radius: 20px;
   --radius-sm: 12px;
   --radius-xs: 8px;
+
+  /* Transitions */
   --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Typography */
   --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -44,6 +70,9 @@ body,
   color: var(--text);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
+  cursor:
+    url(/arrow.png) 0 0,
+    auto;
 }
 
 /* ── Top Navigation Bar ───────────────────────── */

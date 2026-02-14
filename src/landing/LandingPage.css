@@ -1,6 +1,8 @@
 /* ═══════════════════════════════════════════════
-   Landing Page – Premium Dark Overlay Styles
+   Landing Page – Premium Design System
    ═══════════════════════════════════════════════ */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600&display=swap");
 
 .landing-page {
   position: fixed;
@@ -8,8 +10,16 @@
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   -webkit-font-smoothing: antialiased;
+  cursor:
+    url(/arrow.png) 0 0,
+    auto;
 }
 
 /* ── Unicorn Studio Background Container ────── */
@@ -32,11 +42,11 @@
   inset: 0;
   z-index: 1;
   background: radial-gradient(
-      ellipse at 50% 40%,
-      rgba(0, 0, 0, 0.2) 0%,
-      rgba(0, 0, 0, 0.55) 60%,
-      rgba(0, 0, 0, 0.75) 100%
-    );
+    ellipse at 50% 40%,
+    rgba(28, 28, 30, 0.3) 0%,
+    rgba(28, 28, 30, 0.65) 60%,
+    rgba(28, 28, 30, 0.85) 100%
+  );
 }
 
 /* ── Content Container ───────────────────────── */
@@ -50,6 +60,9 @@
   height: 100%;
   text-align: center;
   padding: 40px 24px;
+  cursor:
+    url(/arrow.png) 0 0,
+    auto;
 }
 
 /* ── Glass Card ──────────────────────────────── */
@@ -107,14 +120,20 @@
 }
 
 @keyframes dotPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
-  50% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); }
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(59, 130, 246, 0);
+  }
 }
 
 /* ── Title ───────────────────────────────────── */
 .landing-title {
+  font-family: "Manrope", "Inter", sans-serif;
   font-size: 52px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: -1.5px;
   line-height: 1.1;
   margin-bottom: 18px;
@@ -124,7 +143,7 @@
 }
 
 .landing-title .title-gradient {
-  background: linear-gradient(135deg, #ffffff 0%, #93c5fd 50%, #3b82f6 100%);
+  background: linear-gradient(135deg, #ffffff 0%, #e7c2a3 50%, #d4a373 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -132,9 +151,10 @@
 
 /* ── Subtitle ────────────────────────────────── */
 .landing-subtitle {
+  font-family: "Inter", sans-serif;
   font-size: 17px;
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.75);
   line-height: 1.65;
   margin-bottom: 40px;
   max-width: 440px;
@@ -182,7 +202,11 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    transparent 60%
+  );
   opacity: 1;
   transition: opacity 0.3s;
 }

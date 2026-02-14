@@ -12,7 +12,7 @@ export default function LandingPage() {
     if (!container) return;
 
     const wrapper = document.createElement("div");
-    wrapper.setAttribute("data-us-project", "iClMKXFy7pwNE41mxRrc");
+    wrapper.setAttribute("data-us-project", "CqzZi2oNJkTBTDj0btND");
     wrapper.style.width = "100%";
     wrapper.style.height = "100%";
     container.appendChild(wrapper);
@@ -93,19 +93,33 @@ export default function LandingPage() {
         </div>
 
         {/* Bottom button */}
-        <div style={{ paddingBottom: "3rem" }}>
+        <div style={{ paddingBottom: "-1rem" }}>
           <button
             onClick={() => navigate("/map")}
             id="explore-map-btn"
             style={{
-              background: "none",
+              background: "#D4A373",
               border: "none",
-              color: "white",
-              fontSize: "1.2rem",
+              color: "#FFFFFF",
+              fontSize: "2rem",
               cursor: "pointer",
-              padding: "0",
+              padding: "15px 35px",
+              fontFamily: "Inter",
               fontWeight: "500",
               letterSpacing: "0.5px",
+              borderRadius: "12px",
+              transition: "all 0.3s ease",
+              boxShadow: "0 4px 12px rgba(212, 163, 115, 0.3)",
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = "#C08A5B";
+              e.target.style.transform = "translateY(-2px)";
+              e.target.style.boxShadow = "0 6px 16px rgba(212, 163, 115, 0.4)";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = "#D4A373";
+              e.target.style.transform = "translateY(0)";
+              e.target.style.boxShadow = "0 4px 12px rgba(212, 163, 115, 0.3)";
             }}
           >
             Explore the Map →

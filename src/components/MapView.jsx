@@ -75,7 +75,7 @@ export default function MapView() {
         // Atmospheric fog for depth – cinematic horizon fading
         fog: {
           range: [0.5, 10],
-          color: "rgba(230, 236, 248, 0.7)",
+          color: "rgba(244, 245, 247, 0.7)",
           "horizon-blend": 0.12,
         },
       },
@@ -199,7 +199,7 @@ function addRouteLayers(map) {
     source: "route-upcoming",
     layout: { "line-join": "round", "line-cap": "round" },
     paint: {
-      "line-color": "#93C5FD",
+      "line-color": "#E7C2A3",
       "line-width": 18,
       "line-opacity": 0.1,
       "line-blur": 12,
@@ -211,7 +211,7 @@ function addRouteLayers(map) {
     type: "line",
     source: "route-upcoming",
     layout: { "line-join": "round", "line-cap": "round" },
-    paint: { "line-color": "#93C5FD", "line-width": 4, "line-opacity": 0.35 },
+    paint: { "line-color": "#E7C2A3", "line-width": 4, "line-opacity": 0.35 },
   });
 
   // ── Traveled shadow (separate depth under traveled) ──
@@ -221,7 +221,7 @@ function addRouteLayers(map) {
     source: "route-traveled",
     layout: { "line-join": "round", "line-cap": "round" },
     paint: {
-      "line-color": "rgba(30, 64, 175, 0.15)",
+      "line-color": "rgba(212, 163, 115, 0.15)",
       "line-width": 24,
       "line-blur": 18,
       "line-translate": [1, 3],
@@ -234,7 +234,7 @@ function addRouteLayers(map) {
     source: "route-traveled",
     layout: { "line-join": "round", "line-cap": "round" },
     paint: {
-      "line-color": "#3B82F6",
+      "line-color": "#D4A373",
       "line-width": 22,
       "line-opacity": 0.22,
       "line-blur": 14,
@@ -247,19 +247,19 @@ function addRouteLayers(map) {
     source: "route-traveled",
     layout: { "line-join": "round", "line-cap": "round" },
     paint: {
-      "line-color": "#60A5FA",
+      "line-color": "#E7C2A3",
       "line-width": 10,
       "line-opacity": 0.35,
       "line-blur": 4,
     },
   });
-  // ── Traveled core (dark blue ribbon) ──
+  // ── Traveled core (dark brown ribbon) ──
   map.addLayer({
     id: "route-traveled-line",
     type: "line",
     source: "route-traveled",
     layout: { "line-join": "round", "line-cap": "round" },
-    paint: { "line-color": "#1D4ED8", "line-width": 5.5, "line-opacity": 0.95 },
+    paint: { "line-color": "#B8895C", "line-width": 5.5, "line-opacity": 0.95 },
   });
   // ── Traveled center highlight (bright inner) ──
   map.addLayer({
@@ -268,7 +268,7 @@ function addRouteLayers(map) {
     source: "route-traveled",
     layout: { "line-join": "round", "line-cap": "round" },
     paint: {
-      "line-color": "#93C5FD",
+      "line-color": "#E7C2A3",
       "line-width": 1.5,
       "line-opacity": 0.6,
     },
