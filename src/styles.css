@@ -18,8 +18,10 @@
   --text-muted: #64748b;
   --accent: #3b82f6;
   --accent-light: #60a5fa;
+  --accent-lighter: #93c5fd;
   --accent-bg: #eff6ff;
   --accent-glow: rgba(59, 130, 246, 0.35);
+  --accent-glow-strong: rgba(59, 130, 246, 0.55);
   --border: #e2e8f0;
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
@@ -237,6 +239,18 @@ body,
   font-weight: 700;
   margin-bottom: 18px;
   letter-spacing: -0.2px;
+  animation: fadeInDown 0.4s ease both;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .info-row {
@@ -246,8 +260,11 @@ body,
   margin-bottom: 14px;
   animation: slideInLeft 0.5s ease both;
 }
+.info-row:nth-child(2) {
+  animation-delay: 0.08s;
+}
 .info-row:nth-child(3) {
-  animation-delay: 0.1s;
+  animation-delay: 0.16s;
 }
 
 @keyframes slideInLeft {
@@ -308,7 +325,7 @@ body,
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  animation: fadeInUp 0.5s ease 0.15s both;
+  animation: fadeInUp 0.5s ease 0.22s both;
 }
 
 @keyframes fadeInUp {
@@ -376,6 +393,7 @@ body,
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  animation: fadeInUp 0.5s ease 0.3s both;
 }
 
 .segments-list {
@@ -385,7 +403,7 @@ body,
   gap: 6px;
   max-height: 200px;
   overflow-y: auto;
-  animation: fadeInUp 0.5s ease 0.25s both;
+  animation: fadeInUp 0.5s ease 0.38s both;
 }
 .segments-list li {
   font-size: 12px;
@@ -561,7 +579,7 @@ body,
 .segment-card-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 .segment-card-name {
   font-size: 14px;
@@ -571,10 +589,20 @@ body,
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.segment-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .segment-card-detail {
   font-size: 12px;
   color: var(--text-muted);
   font-weight: 500;
+}
+.segment-card-divider {
+  font-size: 12px;
+  color: var(--border);
+  font-weight: 700;
 }
 
 /* ── Bottom Playback Bar ──────────────────────── */
@@ -637,20 +665,42 @@ body,
 .play-small::before {
   content: "";
   position: absolute;
-  inset: -3px;
+  inset: -4px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--accent-light));
-  opacity: 0;
+  border: 2.5px solid transparent;
   z-index: -1;
-  transition: opacity 0.3s;
-  filter: blur(8px);
+  transition: all 0.3s ease;
 }
+/* ── Glowing ring animation when playing ── */
+.play-small.playing::before {
+  border-color: var(--accent-light);
+  animation: playGlowRing 1.8s ease-in-out infinite;
+}
+
+@keyframes playGlowRing {
+  0% {
+    inset: -4px;
+    opacity: 0.9;
+    border-color: var(--accent);
+    box-shadow: 0 0 8px var(--accent-glow);
+  }
+  50% {
+    inset: -8px;
+    opacity: 0.4;
+    border-color: var(--accent-light);
+    box-shadow: 0 0 20px var(--accent-glow-strong);
+  }
+  100% {
+    inset: -4px;
+    opacity: 0.9;
+    border-color: var(--accent);
+    box-shadow: 0 0 8px var(--accent-glow);
+  }
+}
+
 .play-small:hover {
   box-shadow: 0 4px 24px var(--accent-glow);
   transform: scale(1.08);
-}
-.play-small:hover::before {
-  opacity: 0.5;
 }
 .play-small:active {
   transform: scale(0.95);
@@ -690,8 +740,34 @@ body,
   width: 0%;
   background: linear-gradient(90deg, var(--accent), var(--accent-light));
   border-radius: 3px;
-  transition: width 0.12s linear;
-  box-shadow: 0 0 8px var(--accent-glow);
+  transition: width 0.25s ease;
+  box-shadow: 0 0 10px var(--accent-glow);
+  overflow: hidden;
+}
+/* Moving gradient wave overlay on progress bar */
+.timeline-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 40%,
+    rgba(255, 255, 255, 0.5) 50%,
+    rgba(255, 255, 255, 0.3) 60%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: progressWave 2s ease-in-out infinite;
+}
+
+@keyframes progressWave {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .timeline-thumb {
@@ -706,7 +782,7 @@ body,
   transform: translate(-50%, -50%);
   box-shadow: 0 1px 8px var(--accent-glow);
   transition:
-    left 0.12s linear,
+    left 0.25s ease,
     transform 0.15s,
     box-shadow 0.15s;
   pointer-events: none;
@@ -742,6 +818,13 @@ body,
   background: var(--accent);
   box-shadow: 0 0 4px var(--accent-glow);
 }
+/* Active node – soft glow */
+.timeline-node.active-node {
+  border-color: var(--accent-light);
+  background: var(--accent-light);
+  box-shadow: 0 0 10px var(--accent-glow-strong);
+  transform: translate(-50%, -50%) scale(1.35);
+}
 
 .timeline-labels {
   display: flex;
@@ -776,7 +859,8 @@ body,
   background: var(--bg);
   border-color: var(--accent-light);
   color: var(--accent);
-  transform: translateY(-1px);
+  transform: translateY(-2px) scale(1.08);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.12);
 }
 .speed-btn.active {
   background: linear-gradient(135deg, var(--accent), var(--accent-light));
@@ -861,9 +945,40 @@ body,
 /* ── Traveler Marker ──────────────────────────── */
 .traveler-marker {
   position: relative;
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   pointer-events: none;
+}
+
+/* Outer glow halo */
+.traveler-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle,
+    rgba(59, 130, 246, 0.35) 0%,
+    rgba(59, 130, 246, 0.12) 50%,
+    transparent 70%
+  );
+  animation: travelerGlowPulse 2.5s ease-in-out infinite;
+  z-index: 1;
+}
+
+@keyframes travelerGlowPulse {
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.3);
+  }
 }
 
 .traveler-core {
@@ -871,15 +986,80 @@ body,
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--accent), var(--accent-light));
   border: 3px solid #fff;
   box-shadow:
-    0 0 20px rgba(59, 130, 246, 0.6),
+    0 0 24px rgba(59, 130, 246, 0.65),
+    0 0 8px rgba(59, 130, 246, 0.3),
     0 2px 8px rgba(0, 0, 0, 0.15);
   z-index: 3;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+/* Inner white precision dot */
+.traveler-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.9);
+  z-index: 4;
+}
+
+/* ── Segment transition pulse on traveler ── */
+.traveler-marker.segment-pulse .traveler-core {
+  animation: segmentPulse 0.9s ease-out;
+}
+.traveler-marker.segment-pulse .traveler-glow {
+  animation: segmentGlowBurst 0.9s ease-out;
+}
+
+@keyframes segmentPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    box-shadow:
+      0 0 24px rgba(59, 130, 246, 0.65),
+      0 0 8px rgba(59, 130, 246, 0.3),
+      0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+  30% {
+    transform: translate(-50%, -50%) scale(1.7);
+    box-shadow:
+      0 0 50px rgba(59, 130, 246, 0.95),
+      0 0 80px rgba(96, 165, 250, 0.5),
+      0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    box-shadow:
+      0 0 24px rgba(59, 130, 246, 0.65),
+      0 0 8px rgba(59, 130, 246, 0.3),
+      0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+}
+
+@keyframes segmentGlowBurst {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.7;
+  }
+  30% {
+    transform: translate(-50%, -50%) scale(2.5);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.7;
+  }
 }
 
 .traveler-pulse {

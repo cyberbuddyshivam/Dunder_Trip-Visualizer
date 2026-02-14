@@ -14,9 +14,21 @@ import {
 function createTravelerElement() {
   const el = document.createElement("div");
   el.className = "traveler-marker";
+
+  // Outer glow halo
+  const glow = document.createElement("div");
+  glow.className = "traveler-glow";
+  el.appendChild(glow);
+
   const core = document.createElement("div");
   core.className = "traveler-core";
   el.appendChild(core);
+
+  // Inner white precision dot
+  const dot = document.createElement("div");
+  dot.className = "traveler-dot";
+  el.appendChild(dot);
+
   const pulse = document.createElement("div");
   pulse.className = "traveler-pulse";
   el.appendChild(pulse);
@@ -38,125 +50,193 @@ export function usePlayback() {
   const lastCameraTs = useRef(0);
   const lastBearing = useRef(0);
 
+  /* ── Pulse light running along the route ── */
+  const updatePulse = useCallback((map, coords, cumDist, progress) => {
+    if (!map) return;
+    const src = map.getSource("route-pulse");
+    if (!src) return;
+
+    // Create a short bright segment just ahead of the traveler
+    const pulseStart = Math.max(0, progress - 0.008);
+    const pulseEnd = Math.min(1, progress + 0.012);
+
+    const startPos = interpolateRoute(coords, cumDist, pulseStart);
+    const endPos = interpolateRoute(coords, cumDist, pulseEnd);
+
+    src.setData({
+      type: "Feature",
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [startPos.lng, startPos.lat],
+          [endPos.lng, endPos.lat],
+        ],
+      },
+    });
+  }, []);
+
   /* ── Animation frame loop ── */
-  const loop = useCallback((timestamp) => {
-    const s = getSnapshot();
-    if (!s.playing) return;
+  const loop = useCallback(
+    (timestamp) => {
+      const s = getSnapshot();
+      if (!s.playing) return;
 
-    if (lastTsRef.current === null) lastTsRef.current = timestamp;
-    const dt = (timestamp - lastTsRef.current) / 1000;
-    lastTsRef.current = timestamp;
+      if (lastTsRef.current === null) lastTsRef.current = timestamp;
+      const dt = (timestamp - lastTsRef.current) / 1000;
+      lastTsRef.current = timestamp;
 
-    const effectiveTime = s.totalPlaybackTime / s.playbackSpeed;
-    let newProgress = s.playbackProgress + dt / effectiveTime;
+      const effectiveTime = s.totalPlaybackTime / s.playbackSpeed;
+      let newProgress = s.playbackProgress + dt / effectiveTime;
 
-    if (newProgress >= 1) {
-      newProgress = 1;
-      setState({ playbackProgress: 1, playing: false });
-      // Reset camera to flat view when finished
-      const map = window.__mapInstance;
-      if (map) {
-        map.easeTo({
-          pitch: 0,
-          bearing: 0,
-          zoom: map.getZoom() - 1,
-          duration: 1500,
-        });
-      }
-    } else {
-      setState({ playbackProgress: newProgress });
-    }
-
-    // Update traveler, camera, and route sources
-    if (s._cumDist && s.routeCoords.length > 0) {
-      const pos = interpolateRoute(s.routeCoords, s._cumDist, newProgress);
-      const markers = window.__mapMarkers;
-      const map = window.__mapInstance;
-
-      // Move traveler marker
-      if (markers?.traveler) {
-        markers.traveler.setLngLat([pos.lng, pos.lat]);
+      if (newProgress >= 1) {
+        newProgress = 1;
+        setState({ playbackProgress: 1, playing: false });
+        // Smooth camera reset to flat view
+        const map = window.__mapInstance;
+        if (map) {
+          map.easeTo({
+            pitch: 0,
+            bearing: 0,
+            zoom: map.getZoom() - 1,
+            duration: 2000,
+            easing: (t) => 1 - Math.pow(1 - t, 3),
+          });
+        }
+      } else {
+        setState({ playbackProgress: newProgress });
       }
 
-      // Update route traveled/upcoming sources
-      if (map) {
-        const { traveled, upcoming } = splitRouteAtProgress(
-          s.routeCoords,
-          s._cumDist,
-          newProgress,
-        );
-        try {
-          const srcT = map.getSource("route-traveled");
-          const srcU = map.getSource("route-upcoming");
-          if (srcT && traveled.length >= 2) {
-            srcT.setData({
-              type: "Feature",
-              geometry: { type: "LineString", coordinates: traveled },
-            });
-          }
-          if (srcU && upcoming.length >= 2) {
-            srcU.setData({
-              type: "Feature",
-              geometry: { type: "LineString", coordinates: upcoming },
-            });
-          }
-        } catch (_) {}
-      }
+      // Update traveler, camera, and route sources
+      if (s._cumDist && s.routeCoords.length > 0) {
+        const pos = interpolateRoute(s.routeCoords, s._cumDist, newProgress);
+        const markers = window.__mapMarkers;
+        const map = window.__mapInstance;
 
-      // ── Cinematic camera follow (throttled ~200ms) ──
-      if (map && newProgress > 0.01 && newProgress < 0.99) {
-        const now = performance.now();
-        if (now - lastCameraTs.current > 200) {
-          lastCameraTs.current = now;
+        // Move traveler marker
+        if (markers?.traveler) {
+          markers.traveler.setLngLat([pos.lng, pos.lat]);
+        }
 
-          // Compute bearing looking slightly ahead
-          const lookAheadT = Math.min(newProgress + 0.015, 1);
-          const aheadPos = interpolateRoute(
+        // Update route traveled/upcoming sources
+        if (map) {
+          const { traveled, upcoming } = splitRouteAtProgress(
             s.routeCoords,
             s._cumDist,
-            lookAheadT,
+            newProgress,
           );
-          let targetBearing = computeBearing(pos, aheadPos);
+          try {
+            const srcT = map.getSource("route-traveled");
+            const srcU = map.getSource("route-upcoming");
+            if (srcT && traveled.length >= 2) {
+              srcT.setData({
+                type: "Feature",
+                geometry: { type: "LineString", coordinates: traveled },
+              });
+            }
+            if (srcU && upcoming.length >= 2) {
+              srcU.setData({
+                type: "Feature",
+                geometry: { type: "LineString", coordinates: upcoming },
+              });
+            }
+          } catch (_) {}
 
-          // Smooth bearing interpolation (avoid 360° jumps)
-          let diff = targetBearing - lastBearing.current;
-          if (diff > 180) diff -= 360;
-          if (diff < -180) diff += 360;
-          const smoothedBearing = lastBearing.current + diff * 0.25;
-          lastBearing.current = smoothedBearing;
+          // Update pulse light
+          updatePulse(map, s.routeCoords, s._cumDist, newProgress);
+        }
 
-          map.easeTo({
-            center: [pos.lng, pos.lat],
-            bearing: smoothedBearing,
-            pitch: 50,
-            zoom: 15,
-            duration: 600,
-            essential: true,
-          });
+        // ── Cinematic camera follow (throttled ~150ms) ──
+        if (map && newProgress > 0.01 && newProgress < 0.99) {
+          const now = performance.now();
+          if (now - lastCameraTs.current > 150) {
+            lastCameraTs.current = now;
+
+            // Look further ahead for smoother drone-like feel
+            const lookAheadT = Math.min(newProgress + 0.04, 1);
+            const aheadPos = interpolateRoute(
+              s.routeCoords,
+              s._cumDist,
+              lookAheadT,
+            );
+            let targetBearing = computeBearing(pos, aheadPos);
+
+            // Very smooth bearing interpolation (cinematic rotation)
+            let diff = targetBearing - lastBearing.current;
+            if (diff > 180) diff -= 360;
+            if (diff < -180) diff += 360;
+            const smoothedBearing = lastBearing.current + diff * 0.12;
+            lastBearing.current = smoothedBearing;
+
+            // Dynamic pitch: 48–54° with subtle sine variation
+            const dynamicPitch = 51 + 3 * Math.sin(newProgress * Math.PI * 3);
+
+            map.easeTo({
+              center: [aheadPos.lng, aheadPos.lat],
+              bearing: smoothedBearing,
+              pitch: dynamicPitch,
+              zoom: 15.2,
+              duration: 1100,
+              easing: (t) => 1 - Math.pow(1 - t, 3), // ease-out cubic
+              essential: true,
+            });
+          }
+        }
+
+        // ── Track active segment ──
+        if (s.segmentBoundaries && s.segmentBoundaries.length > 1) {
+          let segIdx = 0;
+          for (let i = 0; i < s.segmentBoundaries.length - 1; i++) {
+            if (newProgress >= s.segmentBoundaries[i]) segIdx = i;
+          }
+          if (segIdx !== s.activeSegmentIndex && s.segments[segIdx]) {
+            setState({
+              activeSegmentIndex: segIdx,
+              currentSegmentInfo: s.segments[segIdx],
+              showSegmentCard: true,
+            });
+
+            // Trigger traveler pulse animation on segment change
+            const travelerEl = markers?.traveler?.getElement();
+            if (travelerEl) {
+              travelerEl.classList.add("segment-pulse");
+              setTimeout(
+                () => travelerEl.classList.remove("segment-pulse"),
+                900,
+              );
+            }
+
+            // Camera zoom bump: zoom in 3-5% for 0.5s then ease back
+            if (map) {
+              const curZoom = map.getZoom();
+              map.easeTo({
+                zoom: curZoom + 0.5,
+                duration: 500,
+                easing: (t) => t * (2 - t),
+                essential: true,
+              });
+              setTimeout(() => {
+                if (map) {
+                  map.easeTo({
+                    zoom: curZoom,
+                    duration: 700,
+                    easing: (t) => 1 - Math.pow(1 - t, 3),
+                    essential: true,
+                  });
+                }
+              }, 500);
+            }
+
+            setTimeout(() => setState({ showSegmentCard: false }), 3500);
+          }
         }
       }
 
-      // ── Track active segment ──
-      if (s.segmentBoundaries && s.segmentBoundaries.length > 1) {
-        let segIdx = 0;
-        for (let i = 0; i < s.segmentBoundaries.length - 1; i++) {
-          if (newProgress >= s.segmentBoundaries[i]) segIdx = i;
-        }
-        if (segIdx !== s.activeSegmentIndex && s.segments[segIdx]) {
-          setState({
-            activeSegmentIndex: segIdx,
-            currentSegmentInfo: s.segments[segIdx],
-            showSegmentCard: true,
-          });
-          setTimeout(() => setState({ showSegmentCard: false }), 3000);
-        }
+      if (newProgress < 1) {
+        frameRef.current = requestAnimationFrame(loop);
       }
-    }
-
-    if (newProgress < 1) {
-      frameRef.current = requestAnimationFrame(loop);
-    }
-  }, []);
+    },
+    [updatePulse],
+  );
 
   /* ── Start / Pause ── */
   const start = useCallback(() => {
@@ -188,7 +268,8 @@ export function usePlayback() {
         zoom: 15,
         pitch: 50,
         bearing: 0,
-        duration: 1200,
+        duration: 1500,
+        easing: (t) => t * (2 - t),
         essential: true,
       });
     }
@@ -237,8 +318,10 @@ export function usePlayback() {
       try {
         const s1 = map.getSource("route-upcoming");
         const s2 = map.getSource("route-traveled");
+        const s3 = map.getSource("route-pulse");
         if (s1) s1.setData(EMPTY_GEO);
         if (s2) s2.setData(EMPTY_GEO);
+        if (s3) s3.setData(EMPTY_GEO);
       } catch (_) {}
     }
     resetState();

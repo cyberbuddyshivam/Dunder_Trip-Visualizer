@@ -15,6 +15,7 @@ export default function PlaybackBar() {
     routeCoords,
     _cumDist,
     segmentBoundaries,
+    activeSegmentIndex,
   } = useRouteStore();
   const { toggle } = usePlayback();
 
@@ -31,6 +32,16 @@ export default function PlaybackBar() {
     const step = Math.ceil(inner.length / 10);
     return inner.filter((_, i) => i % step === 0);
   }, [segmentBoundaries]);
+
+  // Determine which segment node is "active" (closest passed node to current progress)
+  const activeNodeIndex = useMemo(() => {
+    if (!visibleNodes.length) return -1;
+    let idx = -1;
+    for (let i = 0; i < visibleNodes.length; i++) {
+      if (playbackProgress >= visibleNodes[i]) idx = i;
+    }
+    return idx;
+  }, [visibleNodes, playbackProgress]);
 
   const handleScrub = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -72,8 +83,12 @@ export default function PlaybackBar() {
   return (
     <footer className={`playback-bar ${visible ? "" : "hidden"}`}>
       <div className="playback-inner">
-        {/* Play button */}
-        <button className="play-small" disabled={!visible} onClick={toggle}>
+        {/* Play button with glow ring when playing */}
+        <button
+          className={`play-small ${playing ? "playing" : ""}`}
+          disabled={!visible}
+          onClick={toggle}
+        >
           {playing ? (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <rect x="6" y="4" width="4" height="16" rx="1" />
@@ -92,13 +107,20 @@ export default function PlaybackBar() {
             <div className="timeline-progress" style={{ width: `${pct}%` }} />
             {/* Segment nodes */}
             <div className="timeline-nodes">
-              {visibleNodes.map((boundary, i) => (
-                <div
-                  key={i}
-                  className={`timeline-node ${playbackProgress >= boundary ? "passed" : ""}`}
-                  style={{ left: `${(boundary * 100).toFixed(1)}%` }}
-                />
-              ))}
+              {visibleNodes.map((boundary, i) => {
+                const isPassed = playbackProgress >= boundary;
+                const isActive =
+                  i === activeNodeIndex &&
+                  (i + 1 >= visibleNodes.length ||
+                    playbackProgress < visibleNodes[i + 1]);
+                return (
+                  <div
+                    key={i}
+                    className={`timeline-node ${isPassed ? "passed" : ""} ${isActive ? "active-node" : ""}`}
+                    style={{ left: `${(boundary * 100).toFixed(1)}%` }}
+                  />
+                );
+              })}
             </div>
             <div className="timeline-thumb" style={{ left: `${pct}%` }} />
           </div>

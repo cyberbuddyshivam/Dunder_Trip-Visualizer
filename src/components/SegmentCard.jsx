@@ -1,5 +1,6 @@
 import React from "react";
 import { useRouteStore } from "../store";
+import { formatDuration } from "../utils";
 
 export default function SegmentCard() {
   const { showSegmentCard, currentSegmentInfo } = useRouteStore();
@@ -10,6 +11,8 @@ export default function SegmentCard() {
     currentSegmentInfo.distance >= 1000
       ? `${(currentSegmentInfo.distance / 1000).toFixed(1)} km`
       : `${Math.round(currentSegmentInfo.distance)} m`;
+
+  const timeText = formatDuration(currentSegmentInfo.duration);
 
   return (
     <div className={`segment-card ${showSegmentCard ? "visible" : ""}`}>
@@ -25,18 +28,18 @@ export default function SegmentCard() {
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <path d="M18 8h1a4 4 0 010 8h-1" />
-            <path d="M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z" />
-            <line x1="6" y1="1" x2="6" y2="4" />
-            <line x1="10" y1="1" x2="10" y2="4" />
-            <line x1="14" y1="1" x2="14" y2="4" />
+            <path d="M12 2L19 21 12 17 5 21 12 2z" />
           </svg>
         </div>
         <div className="segment-card-text">
           <span className="segment-card-name">
             {currentSegmentInfo.instruction}
           </span>
-          <span className="segment-card-detail">{distText}</span>
+          <div className="segment-card-meta">
+            <span className="segment-card-detail">{distText}</span>
+            <span className="segment-card-divider">·</span>
+            <span className="segment-card-detail">{timeText}</span>
+          </div>
         </div>
       </div>
     </div>

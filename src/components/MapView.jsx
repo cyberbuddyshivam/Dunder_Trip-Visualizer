@@ -71,6 +71,12 @@ export default function MapView() {
           },
         ],
         glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+        // Atmospheric fog for depth – cinematic horizon fading
+        fog: {
+          range: [0.5, 10],
+          color: "rgba(230, 236, 248, 0.7)",
+          "horizon-blend": 0.12,
+        },
       },
       center: [78.9629, 20.5937],
       zoom: 4.5,
@@ -144,8 +150,23 @@ export default function MapView() {
 function addRouteLayers(map) {
   map.addSource("route-upcoming", { type: "geojson", data: EMPTY_GEO });
   map.addSource("route-traveled", { type: "geojson", data: EMPTY_GEO });
+  map.addSource("route-pulse", { type: "geojson", data: EMPTY_GEO });
 
-  // Upcoming glow
+  // ── Route shadow (depth separation from map surface) ──
+  map.addLayer({
+    id: "route-shadow",
+    type: "line",
+    source: "route-upcoming",
+    layout: { "line-join": "round", "line-cap": "round" },
+    paint: {
+      "line-color": "rgba(15, 23, 42, 0.10)",
+      "line-width": 26,
+      "line-blur": 20,
+      "line-translate": [2, 5],
+    },
+  });
+
+  // ── Upcoming outer glow halo ──
   map.addLayer({
     id: "route-upcoming-glow",
     type: "line",
@@ -153,20 +174,34 @@ function addRouteLayers(map) {
     layout: { "line-join": "round", "line-cap": "round" },
     paint: {
       "line-color": "#93C5FD",
-      "line-width": 14,
-      "line-opacity": 0.18,
-      "line-blur": 8,
+      "line-width": 18,
+      "line-opacity": 0.1,
+      "line-blur": 12,
     },
   });
-  // Upcoming line
+  // ── Upcoming core line ──
   map.addLayer({
     id: "route-upcoming-line",
     type: "line",
     source: "route-upcoming",
     layout: { "line-join": "round", "line-cap": "round" },
-    paint: { "line-color": "#93C5FD", "line-width": 4.5, "line-opacity": 0.5 },
+    paint: { "line-color": "#93C5FD", "line-width": 4, "line-opacity": 0.35 },
   });
-  // Traveled glow
+
+  // ── Traveled shadow (separate depth under traveled) ──
+  map.addLayer({
+    id: "route-traveled-shadow",
+    type: "line",
+    source: "route-traveled",
+    layout: { "line-join": "round", "line-cap": "round" },
+    paint: {
+      "line-color": "rgba(30, 64, 175, 0.15)",
+      "line-width": 24,
+      "line-blur": 18,
+      "line-translate": [1, 3],
+    },
+  });
+  // ── Traveled outer glow (brighter) ──
   map.addLayer({
     id: "route-traveled-glow",
     type: "line",
@@ -174,27 +209,79 @@ function addRouteLayers(map) {
     layout: { "line-join": "round", "line-cap": "round" },
     paint: {
       "line-color": "#3B82F6",
-      "line-width": 16,
+      "line-width": 22,
       "line-opacity": 0.22,
-      "line-blur": 10,
+      "line-blur": 14,
     },
   });
-  // Traveled line
+  // ── Traveled inner glow (bright ribbon edge) ──
+  map.addLayer({
+    id: "route-traveled-inner-glow",
+    type: "line",
+    source: "route-traveled",
+    layout: { "line-join": "round", "line-cap": "round" },
+    paint: {
+      "line-color": "#60A5FA",
+      "line-width": 10,
+      "line-opacity": 0.35,
+      "line-blur": 4,
+    },
+  });
+  // ── Traveled core (dark blue ribbon) ──
   map.addLayer({
     id: "route-traveled-line",
     type: "line",
     source: "route-traveled",
     layout: { "line-join": "round", "line-cap": "round" },
-    paint: { "line-color": "#3B82F6", "line-width": 5.5, "line-opacity": 0.9 },
+    paint: { "line-color": "#1D4ED8", "line-width": 5.5, "line-opacity": 0.95 },
+  });
+  // ── Traveled center highlight (bright inner) ──
+  map.addLayer({
+    id: "route-traveled-highlight",
+    type: "line",
+    source: "route-traveled",
+    layout: { "line-join": "round", "line-cap": "round" },
+    paint: {
+      "line-color": "#93C5FD",
+      "line-width": 1.5,
+      "line-opacity": 0.6,
+    },
+  });
+
+  // ── Pulse light layer ──
+  map.addLayer({
+    id: "route-pulse-glow",
+    type: "line",
+    source: "route-pulse",
+    layout: { "line-join": "round", "line-cap": "round" },
+    paint: {
+      "line-color": "#60A5FA",
+      "line-width": 28,
+      "line-opacity": 0.45,
+      "line-blur": 16,
+    },
+  });
+  map.addLayer({
+    id: "route-pulse-core",
+    type: "line",
+    source: "route-pulse",
+    layout: { "line-join": "round", "line-cap": "round" },
+    paint: {
+      "line-color": "#BFDBFE",
+      "line-width": 8,
+      "line-opacity": 0.7,
+      "line-blur": 4,
+    },
   });
 }
 
 function clearRouteSources(map) {
   try {
-    const s1 = map.getSource("route-upcoming");
-    const s2 = map.getSource("route-traveled");
-    if (s1) s1.setData(EMPTY_GEO);
-    if (s2) s2.setData(EMPTY_GEO);
+    const sources = ["route-upcoming", "route-traveled", "route-pulse"];
+    sources.forEach((id) => {
+      const s = map.getSource(id);
+      if (s) s.setData(EMPTY_GEO);
+    });
   } catch (_) {
     /* safe ignore */
   }
@@ -314,33 +401,55 @@ function processRoute(route, map) {
   animateRouteDrawing(rawCoords, map);
 }
 
-/* ── Animated route drawing + camera fly-to-fit ── */
+/* ── Animated route drawing + cinematic camera intro ── */
 function animateRouteDrawing(rawCoords, map) {
   const total = rawCoords.length;
-  const drawDuration = 1500;
+  const drawDuration = 2200;
+  const zoomOutDuration = 800;
   let start = null;
 
-  function step(ts) {
-    if (!start) start = ts;
-    const progress = Math.min((ts - start) / drawDuration, 1);
-    const idx = Math.floor(progress * (total - 1)) + 1;
-    const partialCoords = rawCoords.slice(0, idx);
-
-    try {
-      const src = map.getSource("route-upcoming");
-      if (src) {
-        src.setData({
-          type: "Feature",
-          geometry: { type: "LineString", coordinates: partialCoords },
-        });
-      }
-    } catch (_) {}
-
-    if (progress < 1) requestAnimationFrame(step);
+  // Cubic ease-out for cinematic reveal
+  function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
   }
-  requestAnimationFrame(step);
 
-  // Fly to fit route bounds
+  // Phase 1: Brief zoom-out for dramatic "scene opening"
+  const currentZoom = map.getZoom();
+  const currentCenter = map.getCenter();
+  map.easeTo({
+    zoom: Math.max(currentZoom - 1.5, 3),
+    pitch: 0,
+    bearing: 0,
+    duration: zoomOutDuration,
+    easing: (t) => t * (2 - t),
+    essential: true,
+  });
+
+  // Phase 2: After zoom-out, draw route progressively
+  setTimeout(() => {
+    function step(ts) {
+      if (!start) start = ts;
+      const rawProgress = Math.min((ts - start) / drawDuration, 1);
+      const progress = easeOutCubic(rawProgress);
+      const idx = Math.floor(progress * (total - 1)) + 1;
+      const partialCoords = rawCoords.slice(0, idx);
+
+      try {
+        const src = map.getSource("route-upcoming");
+        if (src && partialCoords.length >= 2) {
+          src.setData({
+            type: "Feature",
+            geometry: { type: "LineString", coordinates: partialCoords },
+          });
+        }
+      } catch (_) {}
+
+      if (rawProgress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }, zoomOutDuration * 0.6);
+
+  // Phase 3: Fly to fit route bounds with cinematic tilt
   const bounds = rawCoords.reduce(
     (b, c) => b.extend(c),
     new maplibregl.LngLatBounds(rawCoords[0], rawCoords[0]),
@@ -348,7 +457,18 @@ function animateRouteDrawing(rawCoords, map) {
   const camera = map.cameraForBounds(bounds, {
     padding: { top: 100, bottom: 120, left: 350, right: 60 },
   });
-  if (camera) {
-    map.flyTo({ ...camera, duration: 1800, essential: true });
-  }
+
+  // Delay the fly-to so it overlaps with draw animation for cinematic effect
+  setTimeout(() => {
+    if (camera) {
+      map.flyTo({
+        ...camera,
+        pitch: 25,
+        bearing: 10,
+        duration: 2800,
+        easing: (t) => 1 - Math.pow(1 - t, 4), // ease-out quartic – very smooth
+        essential: true,
+      });
+    }
+  }, zoomOutDuration + 200);
 }
