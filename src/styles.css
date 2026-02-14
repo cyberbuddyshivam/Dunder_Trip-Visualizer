@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════
-   Journey Route Visualizer – Light-Mode Styles
+   Journey Route Visualizer – React Light-Mode Styles
    ═══════════════════════════════════════════════ */
 
 /* ── Reset & Base ─────────────────────────────── */
@@ -31,7 +31,8 @@
 }
 
 html,
-body {
+body,
+#root {
   height: 100%;
   font-family: var(--font);
   background: var(--bg);
@@ -178,7 +179,7 @@ body {
 }
 
 /* ── Route Info Panel ─────────────────────────── */
-#routePanel {
+.route-panel {
   position: absolute;
   top: 20px;
   left: 20px;
@@ -191,24 +192,24 @@ body {
     opacity 0.4s ease,
     transform 0.4s ease;
 }
-#routePanel.hidden {
+.route-panel.hidden {
   opacity: 0;
   transform: translateX(-20px);
   pointer-events: none;
 }
-#routePanel:not(.hidden) {
+.route-panel:not(.hidden) {
   opacity: 1;
   transform: translateX(0);
 }
 
 /* custom scrollbar */
-#routePanel::-webkit-scrollbar {
+.route-panel::-webkit-scrollbar {
   width: 5px;
 }
-#routePanel::-webkit-scrollbar-track {
+.route-panel::-webkit-scrollbar-track {
   background: transparent;
 }
-#routePanel::-webkit-scrollbar-thumb {
+.route-panel::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 4px;
 }
@@ -409,7 +410,7 @@ body {
 }
 
 /* ── Bottom Playback Bar ──────────────────────── */
-#playbackBar {
+.playback-bar {
   position: fixed;
   bottom: 0;
   left: 0;
@@ -427,12 +428,12 @@ body {
     opacity 0.4s ease,
     transform 0.4s ease;
 }
-#playbackBar.hidden {
+.playback-bar.hidden {
   opacity: 0;
   transform: translateY(20px);
   pointer-events: none;
 }
-#playbackBar:not(.hidden) {
+.playback-bar:not(.hidden) {
   opacity: 1;
   transform: translateY(0);
 }
@@ -617,14 +618,14 @@ body {
   animation: pulse-ring 1.5s ease-out infinite;
 }
 
-/* ── Route line glow (SVG filter applied via JS) ── */
+/* ── Route line glow ── */
 .leaflet-overlay-pane svg {
   filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.25));
 }
 
 /* ── Responsive tweaks ────────────────────────── */
 @media (max-width: 768px) {
-  #routePanel {
+  .route-panel {
     width: 260px;
     padding: 18px;
     top: 12px;
